@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Study Tracker</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>📚 Study Tracker</h1>
+      <nav>
+        <button class="nav-btn active" data-view="today">Today</button>
+        <button class="nav-btn" data-view="weekly">Weekly</button>
+        <button class="nav-btn" data-view="settings">Settings</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- TODAY VIEW -->
+      <section id="today-view" class="view active">
+        <div class="date-header">
+          <h2 id="today-date"></h2>
+        </div>
+        <div id="subjects-list" class="subjects-grid"></div>
+        <div class="total-section">
+          <div class="total-header">TOTAL</div>
+          <div class="total-bar-container">
+            <div class="progress-bar-bg">
+              <div id="total-bar" class="progress-bar"></div>
+            </div>
+            <span id="total-percentage" class="percentage">0%</span>
+          </div>
+          <div id="total-time" class="time-display">0h / 20h</div>
+        </div>
+      </section>
+
+      <!-- WEEKLY VIEW -->
+      <section id="weekly-view" class="view">
+        <div class="week-nav">
+          <button id="prev-week" class="week-btn">◀</button>
+          <h2 id="week-label"></h2>
+          <button id="next-week" class="week-btn">▶</button>
+        </div>
+        <div id="weekly-grid" class="weekly-grid"></div>
+        <div class="weekly-summary">
+          <h3>Weekly Summary</h3>
+          <div id="weekly-averages"></div>
+        </div>
+      </section>
+
+      <!-- SETTINGS VIEW -->
+      <section id="settings-view" class="view">
+        <h2>Settings</h2>
+
+        <div class="settings-group">
+          <label>Weekly Goal per Subject (hours):</label>
+          <input type="number" id="subject-goal" min="1" max="12" step="0.5" value="5"/>
+          <div class="hint">Each subject's weekly target. Hit 100% by reaching this goal in every subject.</div>
+        </div>
+
+        <div class="settings-group">
+          <label>Subjects:</label>
+          <div id="subjects-editor"></div>
+          <button id="add-subject" class="btn-secondary">+ Add Subject</button>
+        </div>
+
+        <div class="settings-group">
+          <label>Pomodoro Timer:</label>
+          <div class="setting-grid">
+            <div class="setting-item">
+              <label>Work (minutes):</label>
+              <input type="number" id="pomodoro-work" min="1" max="120" step="1" value="25"/>
+            </div>
+            <div class="setting-item">
+              <label>Short Break (minutes):</label>
+              <input type="number" id="pomodoro-short" min="1" max="60" step="1" value="5"/>
+            </div>
+            <div class="setting-item">
+              <label>Long Break (minutes):</label>
+              <input type="number" id="pomodoro-long" min="1" max="60" step="1" value="15"/>
+            </div>
+          </div>
+          <div class="hint">Completed pomodoros automatically add work minutes to that subject's study time.</div>
+        </div>
+
+        <div class="settings-group">
+          <label>Notifications:</label>
+          <div class="toggle-row">
+            <input type="checkbox" id="notifications-enabled"/>
+            <label for="notifications-enabled">Enable Daily Reminders</label>
+          </div>
+          <div id="notification-settings" class="hidden">
+            <div class="setting-item">
+              <label>Reminder Time:</label>
+              <input type="time" id="reminder-time" value="09:00"/>
+            </div>
+            <div class="setting-item">
+              <label>Send by email:</label>
+              <input type="checkbox" id="reminder-email-enabled"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <label>EmailJS Setup <span class="muted">(required for email reminders)</span>:</label>
+          <div class="hint" style="color:#8b93a7">
+            Get free keys at <strong>emailjs.com</strong>. Use your Service ID, a template that
+            accepts a variable named <code>{{message}}</code>, and your User ID (public key).
+          </div>
+          <div class="setting-item">
+            <label>Service ID:</label>
+            <input type="text" id="emailjs-service" class="full-width" placeholder="service_xxxxxxx"/>
+          </div>
+          <div class="setting-item">
+            <label>Template ID:</label>
+            <input type="text" id="emailjs-template" class="full-width" placeholder="template_xxxxxxx"/>
+          </div>
+          <div class="setting-item">
+            <label>User ID (public key):</label>
+            <input type="text" id="emailjs-user" class="full-width" placeholder="xxxxxxxxxxxx"/>
+          </div>
+          <div class="setting-item">
+            <label>Your email address:</label>
+            <input type="email" id="emailjs-to" class="full-width" placeholder="you@example.com"/>
+          </div>
+          <button id="test-email" class="btn-secondary">Send test email</button>
+          <div id="email-status" class="hint"></div>
+        </div>
+
+        <div class="settings-group">
+          <label>Theme Color</label>
+          <div class="theme-presets">
+            <button class="theme-swatch active" data-accent="#3d7bfd" data-accent-hover="#2563eb" style="background:#3d7bfd" title="Blue"></button>
+            <button class="theme-swatch" data-accent="#ef4444" data-accent-hover="#dc2626" style="background:#ef4444" title="Red"></button>
+            <button class="theme-swatch" data-accent="#10b981" data-accent-hover="#059669" style="background:#10b981" title="Green"></button>
+            <button class="theme-swatch" data-accent="#f59e0b" data-accent-hover="#d97706" style="background:#f59e0b" title="Orange"></button>
+            <button class="theme-swatch" data-accent="#a855f7" data-accent-hover="#9333ea" style="background:#a855f7" title="Purple"></button>
+            <button class="theme-swatch" data-accent="#ec4899" data-accent-hover="#db2777" style="background:#ec4899" title="Pink"></button>
+            <button class="theme-swatch" data-accent="#22d3ee" data-accent-hover="#06b6d4" style="background:#22d3ee" title="Cyan"></button>
+            <button class="theme-swatch" data-accent="#ffffff" data-accent-hover="#d1d5db" style="background:#ffffff" title="White"></button>
+          </div>
+          <div class="hint">Or enter a custom color:</div>
+          <input type="color" id="theme-accent-custom" value="#3d7bfd"/>
+        </div>
+
+        <div class="settings-group">
+          <label>Timer Appearance</label>
+          <div class="toggle-row">
+            <input type="checkbox" id="timer-text-black"/>
+            <label for="timer-text-black">Use black text on white background</label>
+          </div>
+          <div class="setting-grid">
+            <div class="setting-item">
+              <label>Timer Text Color:</label>
+              <input type="color" id="timer-text-color" value="#ffffff"/>
+            </div>
+            <div class="setting-item">
+              <label>Timer Background Color:</label>
+              <input type="color" id="timer-bg-color" value="#000000"/>
+            </div>
+          </div>
+          <div class="hint">The big fullscreen timer uses these colors. Default is white text on black background.</div>
+          <button id="fullscreen-timer" class="btn-secondary">🔍 Open Fullscreen Timer</button>
+        </div>
+
+        <div class="settings-group">
+          <label>Backup:</label>
+          <div class="row">
+            <button id="backup-export" class="btn-secondary">Export data (.json)</button>
+            <button id="backup-import" class="btn-secondary">Import data</button>
+          </div>
+          <input type="file" id="import-file" accept=".json" style="display:none"/>
+        </div>
+
+        <button id="save-settings" class="btn-primary">Save Settings</button>
+      </section>
+    </main>
+
+    <!-- TIMER MODAL -->
+    <div id="timer-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 id="timer-subject-name"></h3>
+        <div id="timer-display" class="timer-display">00:00:00</div>
+        <button id="timer-close" class="btn-close">✕</button>
+        <button id="timer-fullscreen" class="btn-fullscreen" title="Fullscreen timer">⛶</button>
+
+        <div class="timer-tabs">
+          <button class="tab active" data-tab="stopwatch">Stopwatch</button>
+          <button class="tab" data-tab="pomodoro">Pomodoro</button>
+        </div>
+
+        <!-- Stopwatch panel -->
+        <div id="tab-stopwatch" class="tab-panel active">
+          <div class="timer-controls">
+            <button id="timer-start" class="btn-primary">Start</button>
+            <button id="timer-stop" class="btn-secondary" disabled>Stop</button>
+            <button id="timer-reset" class="btn-secondary">Reset</button>
+          </div>
+          <div class="manual-add">
+            <label>Add time manually:</label>
+            <input type="number" id="manual-hours" min="0" max="12" placeholder="h"/>
+            <input type="number" id="manual-minutes" min="0" max="59" placeholder="m"/>
+            <button id="manual-add-btn" class="btn-secondary">Add</button>
+          </div>
+        </div>
+
+        <!-- Pomodoro panel -->
+        <div id="tab-pomodoro" class="tab-panel">
+          <div id="pomodoro-display" class="pomodoro-display">25:00</div>
+          <div id="pomodoro-phase" class="pomodoro-phase">Work</div>
+          <div id="pomodoro-count" class="pomodoro-count">🍅 0 completed today</div>
+          <div class="timer-controls">
+            <button id="pomodoro-start" class="btn-primary">Start</button>
+            <button id="pomodoro-stop" class="btn-secondary" disabled>Pause</button>
+            <button id="pomodoro-skip" class="btn-secondary">Skip</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+  </div>
+
+  <!-- FULLSCREEN TIMER OVERLAY -->
+  <div id="fullscreen-overlay" class="fullscreen-overlay hidden">
+    <div class="fullscreen-timer-inner">
+      <div id="fs-subject" class="fs-subject"></div>
+      <div id="fs-display" class="fs-display">00:00:00</div>
+      <div id="fs-pomodoro" class="fs-pomodoro"></div>
+      <div class="fs-controls">
+        <button id="fs-start" class="fs-btn primary">Start</button>
+        <button id="fs-stop" class="fs-btn secondary">Stop</button>
+        <button id="fs-reset" class="fs-btn secondary">Reset</button>
+        <button id="fs-close" class="fs-btn danger">✕ Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
