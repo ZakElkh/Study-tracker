@@ -35,7 +35,8 @@ A cozy, self-contained web app for tracking your study progress. Set a weekly go
 ### Data
 - Everything auto-saves to your browser's storage (per device).
 - **Export / Import JSON** buttons let you back up or transfer data between devices.
-- **Save to a JSON file** — in Settings you can pick (or create) a `data.json` file, and the app will write to that real file automatically on every change. You can then open, copy, or move the file freely. Requires Chrome/Edge (File System Access API).
+- **Save to a JSON file** — in Settings you can pick (or create) a `data.json` file, and the app will write to that real file automatically on every change. Requires Chrome/Edge (File System Access API).
+- **Link to GitHub** — in Settings, enter your repository (`owner/name`) and a Personal Access Token (scope: `repo`). The app then stores your data as `data.json` **inside that repo** — it pushes on every change and pulls the newest version on load, when you switch back to the tab, and every ~30 seconds (last-write-wins). This is what shares data across Chrome profiles, incognito, and different computers.
 
 ## How to run
 
@@ -65,5 +66,6 @@ study-tracker/
 
 - Data is stored per-device in `localStorage`. Use Export/Import to back up or transfer between devices manually.
 - **Using a real JSON file:** in Settings → **Save to a JSON file**, click **Open data.json** (a file you already have) or **Create data.json** (a new file). The app then saves to that file on every change. Note: due to browser security you may need to re-open the file when you start a new session.
+- **Linking to GitHub:** in Settings → **Link to GitHub**, put your repo (`owner/name`) and a Personal Access Token (scope: `repo`) in every profile/browser you use. Each client pushes its changes to `data.json` in the repo and pulls the newest version automatically. Unlink to go back to local-only.
 - The weekly goal is adjustable in Settings.
 - `background.png` — replace this file with your own cozy image to change the look (the app references this filename).

@@ -270,6 +270,26 @@
           <div id="file-status" class="hint"></div>
         </div>
 
+        <div class="settings-group">
+          <label>Link to GitHub:</label>
+          <div class="hint">Enter your repository (<code>owner/name</code>) and a Personal Access Token. The app then auto-saves <code>data.json</code> into that repo on every change and pulls the newest version on load — so it's stored in GitHub and shared across profiles, incognito, and other computers. Token needs <strong>repo</strong> permission.</div>
+          <div class="setting-grid">
+            <div class="setting-item">
+              <label>Repository (owner/name):</label>
+              <input type="text" id="sync-repo" placeholder="your-name/study-tracker"/>
+            </div>
+            <div class="setting-item">
+              <label>GitHub Personal Access Token:</label>
+              <input type="password" id="sync-token" placeholder="github_pat_…"/>
+            </div>
+          </div>
+          <div class="row">
+            <button id="sync-save" class="btn-secondary">Link to GitHub</button>
+            <button id="sync-unlink" class="btn-secondary">Unlink</button>
+          </div>
+          <div id="sync-status" class="hint"></div>
+        </div>
+
         <button id="save-settings" class="btn-primary">Save Settings</button>
       </section>
     </main>

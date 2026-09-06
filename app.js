@@ -22,6 +22,12 @@ class StudyTracker {
     // saves to an actual data.json file instead of only browser localStorage.
     this.fileHandle = null;
     this.fileStorageActive = false;
+
+    // GitHub sync (links profiles/browsers/PCs via a shared repo + personal access token)
+    this.syncConfig = null;
+    this.syncState = { updatedAt: 0, sha: null };
+    this.syncTimer = null;
+    this.syncPollInterval = null;
     
     // Pomodoro state
     this.pomodoro = {
@@ -72,6 +78,10 @@ class StudyTracker {
     };
     window.addEventListener('beforeunload', autoSave);
     window.addEventListener('pagehide', autoSave);
+
+    // Initialise GitHub sync (pull linked data on startup, poll for changes)
+    this.initSync();
+    this.initSyncUI();
 
     // Initialise file storage (auto-loads/restores a shared data.json when possible)
     this.initFileStorage();
@@ -457,6 +467,8 @@ class StudyTracker {
     if (this.fileStorageActive && this.fileHandle) {
       this.writeFileData();
     }
+    // Debounced push to the linked GitHub repo (only for real changes)
+    if (bumpMod) this.scheduleSyncPush();
   }
 
   // ---- REAL FILE STORAGE (File System Access API) ----
@@ -529,7 +541,10 @@ class StudyTracker {
       this.showToast('Now saving to ' + handle.name + '.');
       return true;
     } catch (e) {
-      // User cancelled the picker
+      if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || (e.message && /denied|blocked|permission/i.test(e.message)))) {
+        this.showToast('Blocked by the browser. Allow file access in Site settings (lock icon) and try again.');
+      }
+      // Otherwise the user simply cancelled the picker
       return false;
     }
   }
@@ -553,6 +568,10 @@ class StudyTracker {
       this.showToast('Now saving to ' + handle.name + '.');
       return true;
     } catch (e) {
+      if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError' || (e.message && /denied|blocked|permission/i.test(e.message)))) {
+        this.showToast('Blocked by the browser. Allow file access in Site settings (lock icon) and try again.');
+      }
+      // Otherwise the user simply cancelled the picker
       return false;
     }
   }
@@ -2542,6 +2561,194 @@ class StudyTracker {
     this.applyTimerColors();
     this.refresh();
     this.renderSettings();
+  }
+
+  // ---- GITHUB SYNC (store data.json in a repo, shared across profiles/PCs) ----
+
+  initSyncUI() {
+    const saveBtn = document.getElementById('sync-save');
+    const unlinkBtn = document.getElementById('sync-unlink');
+    if (saveBtn) saveBtn.addEventListener('click', () => this.linkDevices());
+    if (unlinkBtn) unlinkBtn.addEventListener('click', () => this.unlinkDevices());
+  }
+
+  loadSyncConfig() {
+    try {
+      const raw = localStorage.getItem('studyTrackerSync');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  initSync() {
+    this.syncConfig = this.loadSyncConfig();
+    if (!this.syncConfig || !this.syncConfig.repo || !this.syncConfig.token) {
+      this.updateSyncStatus('');
+      return;
+    }
+    try {
+      const raw = localStorage.getItem('studyTrackerSyncState');
+      this.syncState = raw ? JSON.parse(raw) : { updatedAt: 0, sha: null };
+    } catch (e) {
+      this.syncState = { updatedAt: 0, sha: null };
+    }
+    this.prefillSyncUI();
+    this.syncFromRepo(); // pull linked data immediately
+    // Poll for changes from other profiles/PCs every 30s
+    this.syncPollInterval = setInterval(() => this.syncFromRepo(), 30000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') this.syncFromRepo();
+    });
+  }
+
+  prefillSyncUI() {
+    if (!this.syncConfig) return;
+    const repoEl = document.getElementById('sync-repo');
+    if (repoEl) repoEl.value = this.syncConfig.repo || '';
+    this.updateSyncStatus('<span style="opacity:0.8">✓ Linked to ' + (this.syncConfig.repo || 'repo') + '</span>');
+  }
+
+  linkDevices() {
+    const repoEl = document.getElementById('sync-repo');
+    const tokenEl = document.getElementById('sync-token');
+    const repo = (repoEl.value || '').trim();
+    const token = (tokenEl.value || '').trim();
+    if (!repo || !token) {
+      this.updateSyncStatus('<span style="color:#e05d5d">Please enter both the repository name and the token.</span>');
+      return;
+    }
+    this.syncConfig = { repo, token };
+    try { localStorage.setItem('studyTrackerSync', JSON.stringify(this.syncConfig)); } catch (e) {}
+    this.syncState = { updatedAt: 0, sha: null };
+    this.updateSyncStatus('Linking…');
+    this.syncFromRepo().then(() => {
+      // After a pull, push local so all linked clients converge
+      if (!this.data.lastModified || this.data.lastModified > this.syncState.updatedAt) {
+        this.syncPush();
+      }
+    });
+    if (!this.syncPollInterval) {
+      this.syncPollInterval = setInterval(() => this.syncFromRepo(), 30000);
+    }
+  }
+
+  unlinkDevices() {
+    try { localStorage.removeItem('studyTrackerSync'); } catch (e) {}
+    try { localStorage.removeItem('studyTrackerSyncState'); } catch (e) {}
+    this.syncConfig = null;
+    this.syncState = { updatedAt: 0, sha: null };
+    if (this.syncPollInterval) { clearInterval(this.syncPollInterval); this.syncPollInterval = null; }
+    const repoEl = document.getElementById('sync-repo');
+    if (repoEl) repoEl.value = '';
+    const tokenEl = document.getElementById('sync-token');
+    if (tokenEl) tokenEl.value = '';
+    this.updateSyncStatus('Unlinked — data is now local-only.');
+  }
+
+  updateSyncStatus(html) {
+    const el = document.getElementById('sync-status');
+    if (el) el.innerHTML = html;
+  }
+
+  scheduleSyncPush() {
+    if (!this.syncConfig || !this.syncConfig.repo || !this.syncConfig.token) return;
+    if (this.syncTimer) clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => this.syncPush(), 2500);
+  }
+
+  b64encode(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  async syncPush() {
+    if (!this.syncConfig || !this.syncConfig.repo || !this.syncConfig.token) return;
+    const { repo, token } = this.syncConfig;
+    const path = 'data.json';
+    const content = this.b64encode(JSON.stringify(this.data));
+    let sha = this.syncState.sha;
+    // GitHub requires the current SHA to update a file; fetch it if unknown
+    if (sha === null || sha === undefined) {
+      try {
+        const meta = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+          headers: { Authorization: `token ${token}` }
+        });
+        if (meta.ok) {
+          const j = await meta.json();
+          sha = j.sha;
+        } else if (meta.status !== 404) {
+          this.updateSyncStatus('<span style="color:#e05d5d">Sync failed — check repo/token.</span>');
+          return;
+        }
+      } catch (e) {
+        this.updateSyncStatus('<span style="color:#e05d5d">Sync failed — no connection.</span>');
+        return;
+      }
+    }
+    const body = {
+      message: 'sync data',
+      content
+    };
+    if (sha) body.sha = sha;
+    try {
+      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        const j = await res.json();
+        this.syncState.sha = j.content && j.content.sha ? j.content.sha : sha;
+        this.syncState.updatedAt = Date.now();
+        try { localStorage.setItem('studyTrackerSyncState', JSON.stringify(this.syncState)); } catch (e) {}
+        this.updateSyncStatus('✓ Saved to GitHub — synced.');
+      } else if (res.status === 422) {
+        // SHA changed since we last saw it (another client pushed): refetch and retry once
+        this.syncState.sha = null;
+        this.syncPush();
+      } else {
+        this.updateSyncStatus(`<span style="color:#e05d5d">Sync failed (${res.status}).</span>`);
+      }
+    } catch (e) {
+      this.updateSyncStatus('<span style="color:#e05d5d">Sync failed — no connection.</span>');
+    }
+  }
+
+  async syncFromRepo() {
+    if (!this.syncConfig || !this.syncConfig.repo || !this.syncConfig.token) return;
+    const { repo, token } = this.syncConfig;
+    const path = 'data.json';
+    try {
+      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+        headers: { Authorization: `token ${token}` }
+      });
+      if (res.status === 404) {
+        // No data.json in the repo yet: push local once
+        this.syncState.sha = null;
+        this.syncPush();
+        return;
+      }
+      if (!res.ok) return;
+      const j = await res.json();
+      this.syncState.sha = j.sha;
+      const remoteData = JSON.parse(decodeURIComponent(escape(atob(j.content))));
+      const remoteModified = remoteData.lastModified || 0;
+      const localModified = this.data.lastModified || 0;
+      if (remoteModified > localModified && remoteData.days && remoteData.subjects) {
+        // A linked client has newer data → adopt it
+        localStorage.setItem('studyTracker', JSON.stringify(remoteData));
+        this.data = remoteData;
+        this.syncState.updatedAt = Date.now();
+        try { localStorage.setItem('studyTrackerSyncState', JSON.stringify(this.syncState)); } catch (e) {}
+        this.reloadAfterSync();
+        this.updateSyncStatus('✓ Synced from GitHub.');
+      } else if (remoteModified < localModified) {
+        // Local is newer → push it up
+        this.syncPush();
+      }
+      // Equal → already in sync
+    } catch (e) { /* offline; ignore */ }
   }
 }
 
