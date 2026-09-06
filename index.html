@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Study Tracker</title>
+  <link rel="icon" href="logo.png" type="image/png"/>
+  <link rel="apple-touch-icon" href="logo.png"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="brand">
+        <img src="logo.png" alt="Study Tracker logo" class="logo-img"/>
+        <h1>Study Tracker</h1>
+      </div>
+      <nav>
+        <button class="nav-btn active" data-view="today">Today</button>
+        <button class="nav-btn" data-view="weekly">Weekly</button>
+        <button class="nav-btn" data-view="tasks">Tasks &amp; Exams</button>
+        <button class="nav-btn" data-view="settings">Settings</button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- TODAY VIEW -->
+      <section id="today-view" class="view active">
+        <div class="date-header">
+          <h2 id="today-date"></h2>
+        </div>
+        <div id="subjects-list" class="subjects-grid"></div>
+        <div class="total-section">
+          <div class="total-header">TOTAL</div>
+          <div class="total-bar-container">
+            <div class="progress-bar-bg">
+              <div id="total-bar" class="progress-bar"></div>
+            </div>
+            <span id="total-percentage" class="percentage">0%</span>
+          </div>
+          <div id="total-time" class="time-display">0h / 20h</div>
+        </div>
+        <div id="awake-indicator" class="awake-indicator">Keep-awake (prevents PC sleep while a timer runs)</div>
+
+        <!-- TASKS & EXAMS (daily bottom) -->
+        <div class="today-tasks-section">
+          <div class="today-tasks-head">
+            <h2>Tasks &amp; Exams</h2>
+            <button id="today-go-tasks" class="btn-secondary small-btn">Open full view →</button>
+          </div>
+          <div class="today-tasks-layout">
+            <div class="today-tasks-column">
+              <div id="today-subject-tabs" class="subject-tabs"></div>
+              <div id="today-checklists-area" class="checklists-area"></div>
+            </div>
+            <div class="today-exams-column">
+              <h3>Upcoming exams</h3>
+              <div id="today-exams-list" class="exams-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WEEKLY VIEW -->
+      <section id="weekly-view" class="view">
+        <div class="week-nav">
+          <button id="prev-week" class="week-btn">◀</button>
+          <h2 id="week-label"></h2>
+          <button id="next-week" class="week-btn">▶</button>
+        </div>
+        <div id="weekly-grid" class="weekly-grid"></div>
+        <div class="weekly-summary">
+          <h3>Weekly Summary</h3>
+          <div id="weekly-averages"></div>
+        </div>
+      </section>
+
+      <!-- TASKS & EXAMS VIEW -->
+      <section id="tasks-view" class="view">
+        <div class="tasks-layout">
+          <div class="tasks-column">
+            <h2>Tasks &amp; Checklists</h2>
+            <div id="subject-tabs" class="subject-tabs"></div>
+            <div id="checklists-area" class="checklists-area"></div>
+          </div>
+          <div class="exams-column">
+            <h2>Exams</h2>
+            <div id="exams-list" class="exams-list"></div>
+            <button id="add-exam-btn" class="btn-secondary">+ Add Exam</button>
+          </div>
+        </div>
+
+        <!-- Add list modal -->
+        <div id="list-modal" class="modal hidden">
+          <div class="modal-content small">
+            <h3 id="list-modal-title">Add Checklist</h3>
+            <div class="form-group">
+              <label>Checklist name:</label>
+              <input type="text" id="new-list-name" placeholder="e.g. Algebra revision"/>
+            </div>
+            <div class="modal-actions">
+              <button id="list-modal-cancel" class="btn-secondary">Cancel</button>
+              <button id="list-modal-save" class="btn-primary">Save</button>
+            </div>
+            <button id="list-modal-close" class="btn-close">✕</button>
+          </div>
+        </div>
+
+        <!-- Add task modal -->
+        <div id="task-modal" class="modal hidden">
+          <div class="modal-content small">
+            <h3 id="task-modal-title">Add Task</h3>
+            <div class="form-group">
+              <label>Task description:</label>
+              <input type="text" id="new-task-text" placeholder="e.g. Practice 20 integration problems"/>
+            </div>
+            <div class="form-group">
+              <label>Due by (optional, automatically overlapsing):</label>
+              <input type="datetime-local" id="new-task-due"/>
+            </div>
+            <div class="form-group">
+              <label>Repeat:</label>
+              <select id="new-task-repeat">
+                <option value="none">No repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+            <div class="modal-actions">
+              <button id="task-modal-cancel" class="btn-secondary">Cancel</button>
+              <button id="task-modal-save" class="btn-primary">Add Task</button>
+            </div>
+            <button id="task-modal-close" class="btn-close">✕</button>
+          </div>
+        </div>
+
+        <!-- Add exam modal -->
+        <div id="exam-modal" class="modal hidden">
+          <div class="modal-content small">
+            <h3>Add Exam</h3>
+            <div class="form-group">
+              <label>Exam name:</label>
+              <input type="text" id="new-exam-name" placeholder="e.g. Maths Paper 1"/>
+            </div>
+            <div class="form-group">
+              <label>Subject:</label>
+              <select id="new-exam-subject"></select>
+            </div>
+            <div class="form-group">
+              <label>Date &amp; time:</label>
+              <input type="datetime-local" id="new-exam-date"/>
+            </div>
+            <div class="form-group">
+              <label>Review target (optional):</label>
+              <input type="text" id="new-exam-target" placeholder="e.g. Finish all topics by then"/>
+            </div>
+            <div class="modal-actions">
+              <button id="exam-modal-cancel" class="btn-secondary">Cancel</button>
+              <button id="exam-modal-save" class="btn-primary">Add Exam</button>
+            </div>
+            <button id="exam-modal-close" class="btn-close">✕</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS VIEW -->
+      <section id="settings-view" class="view">
+        <h2>Settings</h2>
+
+        <div class="settings-group">
+          <label>Weekly Goal per Subject (hours):</label>
+          <input type="number" id="subject-goal" min="1" max="12" step="0.5" value="5"/>
+          <div class="hint">Each subject's weekly target. Hit 100% by reaching this goal in every subject.</div>
+        </div>
+
+        <div class="settings-group">
+          <label>Subjects:</label>
+          <div id="subjects-editor"></div>
+          <button id="add-subject" class="btn-secondary">+ Add Subject</button>
+        </div>
+
+        <div class="settings-group">
+          <label>Pomodoro Timer:</label>
+          <div class="setting-grid">
+            <div class="setting-item">
+              <label>Work (minutes):</label>
+              <input type="number" id="pomodoro-work" min="1" max="120" step="1" value="25"/>
+            </div>
+            <div class="setting-item">
+              <label>Short Break (minutes):</label>
+              <input type="number" id="pomodoro-short" min="1" max="60" step="1" value="5"/>
+            </div>
+            <div class="setting-item">
+              <label>Long Break (minutes):</label>
+              <input type="number" id="pomodoro-long" min="1" max="60" step="1" value="15"/>
+            </div>
+          </div>
+          <div class="hint">Completed pomodoros automatically add work minutes to that subject's study time.</div>
+        </div>
+
+        <div class="settings-group">
+          <label>Notifications:</label>
+          <div class="toggle-row">
+            <input type="checkbox" id="notifications-enabled"/>
+            <label for="notifications-enabled">Enable Daily Reminders</label>
+          </div>
+          <div id="notification-settings" class="hidden">
+            <div class="setting-item">
+              <label>Reminder Time:</label>
+              <input type="time" id="reminder-time" value="09:00"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <label>Theme Color</label>
+          <div class="theme-presets">
+            <button class="theme-swatch active" data-accent="#d97706" data-accent-hover="#b45309" style="background:#d97706" title="Amber"></button>
+            <button class="theme-swatch" data-accent="#ea580c" data-accent-hover="#c2410c" style="background:#ea580c" title="Terracotta"></button>
+            <button class="theme-swatch" data-accent="#16a34a" data-accent-hover="#15803d" style="background:#16a34a" title="Green"></button>
+            <button class="theme-swatch" data-accent="#b45309" data-accent-hover="#92400e" style="background:#b45309" title="Brown"></button>
+            <button class="theme-swatch" data-accent="#7c3aed" data-accent-hover="#6d28d9" style="background:#7c3aed" title="Purple"></button>
+            <button class="theme-swatch" data-accent="#db2777" data-accent-hover="#be185d" style="background:#db2777" title="Rose"></button>
+            <button class="theme-swatch" data-accent="#0d9488" data-accent-hover="#0f766e" style="background:#0d9488" title="Teal"></button>
+            <button class="theme-swatch" data-accent="#ca8a04" data-accent-hover="#a16207" style="background:#ca8a04" title="Gold"></button>
+          </div>
+          <div class="hint">Or enter a custom color:</div>
+          <input type="color" id="theme-accent-custom" value="#d97706"/>
+        </div>
+
+        <div class="settings-group">
+          <label>Timer Appearance</label>
+          <div class="toggle-row">
+            <input type="checkbox" id="timer-text-black"/>
+            <label for="timer-text-black">Use black text on white background</label>
+          </div>
+          <div class="setting-grid">
+            <div class="setting-item">
+              <label>Timer Text Color:</label>
+              <input type="color" id="timer-text-color" value="#ffffff"/>
+            </div>
+            <div class="setting-item">
+              <label>Timer Background Color:</label>
+              <input type="color" id="timer-bg-color" value="#000000"/>
+            </div>
+          </div>
+          <div class="hint">The big fullscreen timer uses these colors. Default is white text on black background.</div>
+        </div>
+
+        <div class="settings-group">
+          <label>Backup:</label>
+          <div class="row">
+            <button id="backup-export" class="btn-secondary">Export data (.json)</button>
+            <button id="backup-import" class="btn-secondary">Import data</button>
+          </div>
+          <input type="file" id="import-file" accept=".json" style="display:none"/>
+        </div>
+
+        <button id="save-settings" class="btn-primary">Save Settings</button>
+      </section>
+    </main>
+
+    <!-- TIMER MODAL -->
+    <div id="timer-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 id="timer-subject-name"></h3>
+        <input id="timer-note" class="timer-note-input" type="text" maxlength="80" placeholder="Write a custom note / motivation here…"/>
+        <div id="timer-display" class="timer-display">00:00:00</div>
+        <button id="timer-close" class="btn-close">✕</button>
+
+        <div class="timer-tabs">
+          <button class="tab active" data-tab="stopwatch">Stopwatch</button>
+          <button class="tab" data-tab="pomodoro">Pomodoro</button>
+        </div>
+
+        <!-- Stopwatch panel -->
+        <div id="tab-stopwatch" class="tab-panel active">
+          <div class="timer-controls">
+            <button id="timer-start" class="btn-primary">Start</button>
+            <button id="timer-pause" class="btn-secondary" disabled>Pause</button>
+            <button id="timer-done" class="btn-secondary" disabled>Done</button>
+            <button id="timer-reset" class="btn-secondary">Reset</button>
+          </div>
+          <div class="focus-row">
+            <button id="timer-mini" class="btn-secondary">◎ Mini timer</button>
+            <button id="timer-fullscreen" class="btn-secondary">⛶ Fullscreen</button>
+          </div>
+          <div class="manual-add">
+            <label>Add time manually:</label>
+            <input type="number" id="manual-hours" min="0" max="12" placeholder="h"/>
+            <input type="number" id="manual-minutes" min="0" max="59" placeholder="m"/>
+            <button id="manual-add-btn" class="btn-secondary">Add</button>
+          </div>
+
+          <div class="sessions-section">
+            <label>Today's sessions for this subject:</label>
+            <div id="sessions-list" class="sessions-list"></div>
+            <div class="remove-lump">
+              <label>Remove time:</label>
+              <input type="number" id="remove-hours" min="0" max="12" placeholder="h"/>
+              <input type="number" id="remove-minutes" min="0" max="59" placeholder="m"/>
+              <button id="remove-time-btn" class="btn-secondary danger-btn">− Remove</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pomodoro panel -->
+        <div id="tab-pomodoro" class="tab-panel">
+          <div id="pomodoro-display" class="pomodoro-display">25:00</div>
+          <div id="pomodoro-phase" class="pomodoro-phase">Work</div>
+          <div id="pomodoro-count" class="pomodoro-count">🍅 0 completed today</div>
+          <div class="timer-controls">
+            <button id="pomodoro-start" class="btn-primary">Start</button>
+            <button id="pomodoro-stop" class="btn-secondary" disabled>Pause</button>
+            <button id="pomodoro-skip" class="btn-secondary">Skip</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+  </div>
+
+  <!-- FULLSCREEN TIMER OVERLAY -->
+  <div id="fullscreen-overlay" class="fullscreen-overlay hidden">
+    <div class="fullscreen-timer-inner">
+      <div id="fs-subject" class="fs-subject"></div>
+      <div id="fs-note" class="fs-note"></div>
+      <div id="fs-display" class="fs-display">00:00:00</div>
+      <div id="fs-pomodoro" class="fs-pomodoro"></div>
+      <div class="fs-controls">
+        <button id="fs-start" class="fs-btn primary">Start</button>
+        <button id="fs-pause" class="fs-btn secondary">Pause</button>
+        <button id="fs-done" class="fs-btn secondary">Done</button>
+        <button id="fs-reset" class="fs-btn secondary">Reset</button>
+        <button id="fs-mini" class="fs-btn secondary">◎ Mini</button>
+        <button id="fs-close" class="fs-btn danger">✕ Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
