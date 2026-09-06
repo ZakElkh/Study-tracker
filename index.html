@@ -259,6 +259,17 @@
           <input type="file" id="import-file" accept=".json" style="display:none"/>
         </div>
 
+        <div class="settings-group">
+          <label>Save to a JSON file:</label>
+          <div class="hint">Pick or create a <code>data.json</code> file and the app will save to it automatically on every change — a real file you can open, copy, or move directly. Requires Chrome/Edge.</div>
+          <div class="row">
+            <button id="file-open" class="btn-secondary">Open data.json</button>
+            <button id="file-new" class="btn-secondary">Create data.json</button>
+            <button id="file-off" class="btn-secondary">Turn off file saving</button>
+          </div>
+          <div id="file-status" class="hint"></div>
+        </div>
+
         <button id="save-settings" class="btn-primary">Save Settings</button>
       </section>
     </main>

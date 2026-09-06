@@ -17,6 +17,11 @@ class StudyTracker {
 
     // Custom note the user writes in the timer (shown in modal / fullscreen / mini)
     this.timerNote = '';
+
+    // Real-file storage (File System Access API). When active, the app loads and
+    // saves to an actual data.json file instead of only browser localStorage.
+    this.fileHandle = null;
+    this.fileStorageActive = false;
     
     // Pomodoro state
     this.pomodoro = {
@@ -67,6 +72,9 @@ class StudyTracker {
     };
     window.addEventListener('beforeunload', autoSave);
     window.addEventListener('pagehide', autoSave);
+
+    // Initialise file storage (auto-loads/restores a shared data.json when possible)
+    this.initFileStorage();
   }
 
   applyTheme() {
@@ -405,7 +413,8 @@ class StudyTracker {
     this.ensureChecklistsExams();
     this.rollRepeatingTasks();
     
-    this.saveData();
+    // Persist normalised data WITHOUT bumping the sync timestamp (pure load, not an edit)
+    this.saveData(false);
   }
 
   getDefaultData() {
@@ -434,12 +443,134 @@ class StudyTracker {
       if (!Array.isArray(this.data.exams)) this.data.exams = [];
     }
 
-  saveData() {
+  saveData(bumpMod = true) {
     this.data.lastActiveDate = this.getTodayKey();
     if (!this.data.days[this.getTodayKey()]) {
       this.data.days[this.getTodayKey()] = this.createEmptyDay();
     }
+    if (bumpMod) {
+      this.data.lastModified = Date.now();
+    }
+    // Keep a localStorage mirror as a safety net, but the real store is the file
     localStorage.setItem('studyTracker', JSON.stringify(this.data));
+    // Persist to the real data.json file when one is active
+    if (this.fileStorageActive && this.fileHandle) {
+      this.writeFileData();
+    }
+  }
+
+  // ---- REAL FILE STORAGE (File System Access API) ----
+
+  supportsFileApi() {
+    return 'showOpenFilePicker' in window && 'showSaveFilePicker' in window;
+  }
+
+  initFileStorage() {
+    if (!this.supportsFileApi()) return;
+    // Bind the Settings buttons
+    const openBtn = document.getElementById('file-open');
+    const newBtn = document.getElementById('file-new');
+    const offBtn = document.getElementById('file-off');
+    if (openBtn) openBtn.addEventListener('click', () => this.chooseDataFile());
+    if (newBtn) newBtn.addEventListener('click', () => this.createDataFile());
+    if (offBtn) offBtn.addEventListener('click', () => this.unlinkFile());
+    try {
+      const raw = localStorage.getItem('studyTrackerFileHandle');
+      if (raw) this.restoreFileHandle(JSON.parse(raw));
+    } catch (e) {}
+  }
+
+  async restoreFileHandle(desc) {
+    // Browsers do not let a page silently re-acquire a file handle across sessions,
+    // so we only remember that the user previously chose a file. On each new open
+    // of the app they pick the same file once (browser security), then auto-saving
+    // to it resumes. We surface this in the Settings status line.
+    this.fileHandle = null;
+    this.fileStorageActive = false;
+    this.updateFileStatus('A file was used before. Open your data.json again to resume auto-saving to it.');
+  }
+
+  updateFileStatus(msg) {
+    const el = document.getElementById('file-status');
+    if (el) el.innerHTML = msg;
+  }
+
+  async chooseDataFile() {
+    if (!this.supportsFileApi()) {
+      this.showToast('This browser does not support file storage. Use Chrome/Edge.');
+      return false;
+    }
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'Study data', accept: { 'application/json': ['.json'] } }],
+        multiple: false
+      });
+      this.fileHandle = handle;
+      let loaded = false;
+      // Try to read existing content from it
+      try {
+        const file = await handle.getFile();
+        const text = await file.text();
+        if (text && text.trim()) {
+          const parsed = JSON.parse(text);
+          if (parsed && parsed.days) {
+            this.data = parsed;
+            loaded = true;
+          }
+        }
+      } catch (e) {}
+      if (!loaded) {
+        // New/empty file: adopt current in-memory data
+      }
+      this.fileStorageActive = true;
+      try { localStorage.setItem('studyTrackerFileHandle', JSON.stringify({ name: handle.name })); } catch (e) {}
+      await this.writeFileData();
+      this.reloadAfterSync();
+      this.showToast('Now saving to ' + handle.name + '.');
+      return true;
+    } catch (e) {
+      // User cancelled the picker
+      return false;
+    }
+  }
+
+  async createDataFile() {
+    if (!this.supportsFileApi()) {
+      this.showToast('This browser does not support file storage. Use Chrome/Edge.');
+      return false;
+    }
+    try {
+      const suggested = 'data.json';
+      const handle = await window.showSaveFilePicker({
+        suggestedName: suggested,
+        types: [{ description: 'Study data', accept: { 'application/json': ['.json'] } }]
+      });
+      this.fileHandle = handle;
+      this.fileStorageActive = true;
+      try { localStorage.setItem('studyTrackerFileHandle', JSON.stringify({ name: handle.name })); } catch (e) {}
+      await this.writeFileData();
+      this.reloadAfterSync();
+      this.showToast('Now saving to ' + handle.name + '.');
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async writeFileData() {
+    if (!this.fileHandle) return;
+    try {
+      const writable = await this.fileHandle.createWritable();
+      await writable.write(JSON.stringify(this.data, null, 2));
+      await writable.close();
+    } catch (e) {}
+  }
+
+  unlinkFile() {
+    this.fileHandle = null;
+    this.fileStorageActive = false;
+    try { localStorage.removeItem('studyTrackerFileHandle'); } catch (e) {}
+    this.showToast('File storage turned off — using local browser storage.');
   }
 
   getDayData(dateKey = null) {
@@ -2390,6 +2521,27 @@ class StudyTracker {
     if (document.getElementById('weekly-view').classList.contains('active')) {
       this.renderWeekly();
     }
+  }
+
+  reloadAfterSync() {
+    // Re-apply settings, subjects, theme, colors from the adopted data
+    if (this.data.settings) {
+      this.subjectGoal = this.data.settings.subjectGoal || this.defaultSubjectGoal;
+      this.notificationsEnabled = this.data.settings.notificationsEnabled || false;
+      this.reminderTime = this.data.settings.reminderTime || '09:00';
+      if (this.data.settings.pomodoroSettings) this.pomodoroSettings = {...this.pomodoroSettings, ...this.data.settings.pomodoroSettings};
+      if (this.data.settings.theme) this.theme = {...this.theme, ...this.data.settings.theme};
+      if (this.data.settings.timerColors) this.timerColors = {...this.timerColors, ...this.data.settings.timerColors};
+    }
+    if (this.data.subjects && this.data.subjects.length > 0) {
+      this.subjects = this.data.subjects;
+    }
+    this.ensureChecklistsExams();
+    this.rollRepeatingTasks();
+    this.applyTheme();
+    this.applyTimerColors();
+    this.refresh();
+    this.renderSettings();
   }
 }
 
