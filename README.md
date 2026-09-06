@@ -38,7 +38,9 @@ A cozy, self-contained web app for tracking your study progress. Set a weekly go
 
 ## How to run
 
-The app is a static page — just open `index.html` in a browser. No build step or server required.
+**Live site:** <https://zakelkh.github.io/Study-tracker/>
+
+The app is a static page — you can also just open `index.html` in a browser. No build step or server required.
 
 ```bash
 # Or serve it locally with Python:
