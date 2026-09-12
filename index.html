@@ -21,6 +21,7 @@
       <nav>
         <button class="nav-btn active" data-view="today">Today</button>
         <button class="nav-btn" data-view="weekly">Weekly</button>
+        <button class="nav-btn" data-view="timetable">Timetable</button>
         <button class="nav-btn" data-view="tasks">Tasks &amp; Exams</button>
         <button class="nav-btn" data-view="settings">Settings</button>
       </nav>
@@ -76,6 +77,26 @@
           <h3>Weekly Summary</h3>
           <div id="weekly-averages"></div>
         </div>
+      </section>
+
+      <!-- TIMETABLE VIEW -->
+      <section id="timetable-view" class="view">
+        <div class="tt-controls">
+          <h2>Timetable</h2>
+          <div class="tt-range">
+            <label>From
+              <input type="number" id="tt-start-hour" min="0" max="23" value="8" class="tt-hour-input"/>
+              :00
+            </label>
+            <label>to
+              <input type="number" id="tt-end-hour" min="1" max="24" value="20" class="tt-hour-input"/>
+              :00
+            </label>
+            <button id="tt-apply" class="btn-secondary small-btn">Apply</button>
+          </div>
+        </div>
+        <div id="timetable-grid"></div>
+        <div class="hint">Click an empty slot to add a class. Click a class to edit or remove it. Your timetable is stored with your data and follows you via your linked JSON file.</div>
       </section>
 
       <!-- TASKS & EXAMS VIEW -->
@@ -137,6 +158,46 @@
           </div>
         </div>
 
+        <!-- Timetable entry modal -->
+        <div id="tt-modal" class="modal hidden">
+          <div class="modal-content small">
+            <h3 id="tt-modal-title">Add class</h3>
+            <div class="form-group">
+              <label>Day:</label>
+              <select id="tt-day">
+                <option value="0">Monday</option>
+                <option value="1">Tuesday</option>
+                <option value="2">Wednesday</option>
+                <option value="3">Thursday</option>
+                <option value="4">Friday</option>
+                <option value="5">Saturday</option>
+                <option value="6">Sunday</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Subject:</label>
+              <select id="tt-subject"></select>
+            </div>
+            <div class="form-group">
+              <label>Start time:</label>
+              <input type="time" id="tt-start" value="09:00"/>
+            </div>
+            <div class="form-group">
+              <label>End time:</label>
+              <input type="time" id="tt-end" value="10:00"/>
+            </div>
+            <div class="form-group">
+              <label>Label (optional, e.g. room / teacher):</label>
+              <input type="text" id="tt-label" placeholder="e.g. Room B12"/>
+            </div>
+            <div class="modal-actions">
+              <button id="tt-modal-delete" class="btn-secondary hidden">Remove</button>
+              <button id="tt-modal-save" class="btn-primary">Save</button>
+            </div>
+            <button id="tt-modal-close" class="btn-close">✕</button>
+          </div>
+        </div>
+
         <!-- Add exam modal -->
         <div id="exam-modal" class="modal hidden">
           <div class="modal-content small">
@@ -179,6 +240,7 @@
         <div class="settings-group">
           <label>Subjects:</label>
           <div id="subjects-editor"></div>
+          <div class="hint">Each subject can have an optional Google Drive folder link. The app will link that subject's card to that folder (you organise the folders yourself on Drive).</div>
           <button id="add-subject" class="btn-secondary">+ Add Subject</button>
         </div>
 

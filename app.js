@@ -436,6 +436,12 @@ class StudyTracker {
       },
       checklists: {},
       exams: [],
+      timetable: {
+        entries: [],
+        startHour: 8,
+        endHour: 20
+      },
+      subjectDrives: {},
       settings: {
         subjectGoal: this.defaultSubjectGoal,
         notificationsEnabled: false,
@@ -451,6 +457,9 @@ class StudyTracker {
     ensureChecklistsExams() {
       if (!this.data.checklists) this.data.checklists = {};
       if (!Array.isArray(this.data.exams)) this.data.exams = [];
+      if (!this.data.timetable) this.data.timetable = { entries: [], startHour: 8, endHour: 20 };
+      if (!this.data.timetable.entries) this.data.timetable.entries = [];
+      if (!this.data.subjectDrives) this.data.subjectDrives = {};
     }
 
   saveData(bumpMod = true) {
@@ -1190,6 +1199,15 @@ class StudyTracker {
       if (e.target === document.getElementById('task-modal')) this.closeTaskModal();
     });
     
+    // ---- Timetable listeners ----
+    document.getElementById('tt-modal-close').addEventListener('click', () => this.closeTTModal());
+    document.getElementById('tt-modal-save').addEventListener('click', () => this.saveTTEntry());
+    document.getElementById('tt-modal-delete').addEventListener('click', () => this.deleteTTEntry());
+    document.getElementById('tt-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('tt-modal')) this.closeTTModal();
+    });
+    document.getElementById('tt-apply').addEventListener('click', () => this.applyTTTimerange());
+    
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         this.closeTimerModal();
@@ -1207,7 +1225,7 @@ class StudyTracker {
   }
 
   closeAllModals() {
-    ['list-modal', 'task-modal', 'exam-modal'].forEach(id => {
+    ['list-modal', 'task-modal', 'exam-modal', 'tt-modal'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.classList.add('hidden');
     });
@@ -1224,6 +1242,9 @@ class StudyTracker {
     if (view === 'weekly') {
       this.currentWeekOffset = 0;
       this.renderWeekly();
+    }
+    if (view === 'timetable') {
+      this.renderTimetable();
     }
     if (view === 'settings') {
       this.renderSettings();
@@ -1287,10 +1308,12 @@ class StudyTracker {
     const goal = this.subjectGoal;
     const isRunning = this.hasActiveTimer(subject);
     const reachedGoal = weekCapped >= goal * 3600000;
+    const driveUrl = this.getSubjectDrive(subject);
     
     card.innerHTML = `
         <div class="subject-header">
           <span class="subject-name">${subject} ${reachedGoal ? '✅' : ''}</span>
+          ${driveUrl ? `<a class="drive-link-btn" href="${this.escapeAttr(driveUrl)}" target="_blank" rel="noopener" title="Open ${this.escapeAttr(subject)} Google Drive folder">📁</a>` : ''}
           <button class="timer-btn ${isRunning ? 'running' : ''}" data-subject="${this.escapeAttr(subject)}">
             ${isRunning ? '⏱ Running' : '▶ Start'}
           </button>
@@ -1320,6 +1343,20 @@ class StudyTracker {
 
   escapeAttr(str) {
     return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  getSubjectDrive(subject) {
+    const drives = this.data.subjectDrives || {};
+    return drives[subject] || '';
   }
 
   // Timer Modal
@@ -2295,6 +2332,236 @@ class StudyTracker {
     this.renderWeekly();
   }
 
+  // ---- Timetable ----
+
+  renderTimetable() {
+    const grid = document.getElementById('timetable-grid');
+    if (!grid) return;
+    const tt = this.data.timetable || { entries: [], startHour: 8, endHour: 20 };
+    const startHour = tt.startHour != null ? tt.startHour : 8;
+    const endHour = tt.endHour != null ? tt.endHour : 20;
+    const entries = tt.entries || [];
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const todayDOW = (new Date().getDay() + 6) % 7; // Monday = 0
+    
+    document.getElementById('tt-start-hour').value = startHour;
+    document.getElementById('tt-end-hour').value = endHour;
+    
+    grid.innerHTML = '';
+    
+    // Header row
+    const header = document.createElement('div');
+    header.className = 'tt-grid tt-header';
+    let headerHtml = '<div class="tt-time-head"></div>';
+    dayNames.forEach((name, i) => {
+      headerHtml += `<div class="tt-day-head ${i === todayDOW ? 'today' : ''}">${dayShort[i]}</div>`;
+    });
+    header.innerHTML = headerHtml;
+    grid.appendChild(header);
+    
+    // Body
+    const body = document.createElement('div');
+    body.className = 'tt-grid tt-body';
+    body.style.gridTemplateColumns = '60px repeat(7, 1fr)';
+    
+    // Time labels column
+    const timeCol = document.createElement('div');
+    timeCol.className = 'tt-time-col';
+    let timeHtml = '';
+    for (let h = startHour; h < endHour; h++) {
+      const hour12 = h % 12 === 0 ? 12 : h % 12;
+      const suffix = h < 12 ? 'AM' : 'PM';
+      timeHtml += `<div class="tt-time-slot" data-hour="${h}">${hour12}:00 ${suffix}</div>`;
+    }
+    timeCol.innerHTML = timeHtml;
+    body.appendChild(timeCol);
+    
+    // Day columns
+    for (let d = 0; d < 7; d++) {
+      const col = document.createElement('div');
+      col.className = 'tt-day-col';
+      col.dataset.day = d;
+      let cellsHtml = '';
+      for (let h = startHour; h < endHour; h++) {
+        cellsHtml += `<div class="tt-cell" data-hour="${h}"></div>`;
+      }
+      col.innerHTML = cellsHtml;
+      
+      // Place entries
+      entries.forEach((entry, entryIdx) => {
+        if (entry.day !== d) return;
+        const top = (entry.startHour - startHour) * 40 + (entry.startMin / 60) * 40;
+        const height = ((entry.endHour * 60 + entry.endMin) - (entry.startHour * 60 + entry.startMin)) / 60 * 40 - 4;
+        const color = this.getSubjectColor(entry.subject);
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'tt-entry';
+        entryDiv.style.top = (top + 3) + 'px';
+        entryDiv.style.height = Math.max(26, height) + 'px';
+        entryDiv.style.background = color;
+        entryDiv.dataset.index = entryIdx;
+        entryDiv.innerHTML = `
+          <div class="tt-entry-title">${this.escapeHtml(entry.subject)}</div>
+          ${entry.label ? `<div class="tt-entry-label">${this.escapeHtml(entry.label)}</div>` : ''}
+          <div class="tt-entry-time">${this.formatTTTime(entry.startHour, entry.startMin)} – ${this.formatTTTime(entry.endHour, entry.endMin)}</div>
+        `;
+        entryDiv.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openTTModal(d, entryIdx);
+        });
+        col.appendChild(entryDiv);
+      });
+      
+      // Click empty cell → open add modal for that day & hour
+      col.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tt-cell')) {
+          const hour = parseInt(e.target.dataset.hour);
+          this.openTTModal(d, null, hour);
+        }
+      });
+      
+      body.appendChild(col);
+    }
+    
+    grid.appendChild(body);
+  }
+
+  getSubjectColor(subject) {
+    const palette = ['#d97706', '#16a34a', '#0d9488', '#7c3aed', '#db2777', '#ca8a04', '#ea580c', '#2563eb'];
+    const idx = this.subjects.indexOf(subject);
+    if (idx === -1) return '#8d99ae';
+    return palette[idx % palette.length];
+  }
+
+  formatTTTime(hour, min) {
+    const h12 = hour % 12 === 0 ? 12 : hour % 12;
+    const suffix = hour < 12 ? 'AM' : 'PM';
+    const mm = String(min).padStart(2, '0');
+    return `${h12}:${mm} ${suffix}`;
+  }
+
+  parseTTTime(str) {
+    const parts = str.split(':');
+    let hour = parseInt(parts[0]);
+    const min = parseInt(parts[1]);
+    const ampm = (str.match(/\s?([AaPp])[Mm]/) || [])[1];
+    if (ampm) {
+      const isPM = ampm.toLowerCase() === 'p';
+      if (isPM && hour < 12) hour += 12;
+      if (!isPM && hour === 12) hour = 0;
+    }
+    return { hour, min };
+  }
+
+  openTTModal(day, index, hour) {
+    const entries = this.data.timetable.entries || [];
+    this.currentTT = { day, index };
+    document.getElementById('tt-day').value = day;
+    
+    // Populate subject select
+    const subjectSel = document.getElementById('tt-subject');
+    subjectSel.innerHTML = '';
+    this.subjects.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      subjectSel.appendChild(opt);
+    });
+    
+    if (index != null && entries[index]) {
+      const e = entries[index];
+      document.getElementById('tt-modal-title').textContent = 'Edit class';
+      document.getElementById('tt-day').value = e.day;
+      document.getElementById('tt-subject').value = e.subject;
+      document.getElementById('tt-start').value = this.formatTTInput(e.startHour, e.startMin);
+      document.getElementById('tt-end').value = this.formatTTInput(e.endHour, e.endMin);
+      document.getElementById('tt-label').value = e.label || '';
+      document.getElementById('tt-modal-delete').classList.remove('hidden');
+    } else {
+      document.getElementById('tt-modal-title').textContent = 'Add class';
+      document.getElementById('tt-subject').selectedIndex = 0;
+      document.getElementById('tt-start').value = `${String(hour != null ? hour : 9).padStart(2, '0')}:00`;
+      document.getElementById('tt-end').value = `${String((hour != null ? hour : 9) + 1).padStart(2, '0')}:00`;
+      document.getElementById('tt-label').value = '';
+      document.getElementById('tt-modal-delete').classList.add('hidden');
+    }
+    document.getElementById('tt-modal').classList.remove('hidden');
+  }
+
+  formatTTInput(hour, min) {
+    return `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+  }
+
+  closeTTModal() {
+    document.getElementById('tt-modal').classList.add('hidden');
+  }
+
+  saveTTEntry() {
+    const day = parseInt(document.getElementById('tt-day').value);
+    const subject = document.getElementById('tt-subject').value;
+    const start = this.parseTTTime(document.getElementById('tt-start').value);
+    const end = this.parseTTTime(document.getElementById('tt-end').value);
+    const label = document.getElementById('tt-label').value.trim();
+    
+    const startMins = start.hour * 60 + start.min;
+    const endMins = end.hour * 60 + end.min;
+    if (endMins <= startMins) {
+      this.showToast('End time must be after start time.');
+      return;
+    }
+    
+    const tt = this.data.timetable;
+    if (!tt.entries) tt.entries = [];
+    
+    if (this.currentTT && this.currentTT.index != null && tt.entries[this.currentTT.index]) {
+      const e = tt.entries[this.currentTT.index];
+      e.day = day;
+      e.subject = subject;
+      e.startHour = start.hour;
+      e.startMin = start.min;
+      e.endHour = end.hour;
+      e.endMin = end.min;
+      e.label = label;
+    } else {
+      tt.entries.push({
+        day,
+        subject,
+        startHour: start.hour,
+        startMin: start.min,
+        endHour: end.hour,
+        endMin: end.min,
+        label
+      });
+    }
+    
+    this.closeTTModal();
+    this.saveData();
+    this.renderTimetable();
+  }
+
+  deleteTTEntry() {
+    const tt = this.data.timetable;
+    if (this.currentTT && this.currentTT.index != null && tt.entries) {
+      tt.entries.splice(this.currentTT.index, 1);
+    }
+    this.closeTTModal();
+    this.saveData();
+    this.renderTimetable();
+  }
+
+  applyTTTimerange() {
+    const start = parseInt(document.getElementById('tt-start-hour').value);
+    const end = parseInt(document.getElementById('tt-end-hour').value);
+    if (isNaN(start) || isNaN(end) || end <= start) {
+      this.showToast('End hour must be after start hour.');
+      return;
+    }
+    this.data.timetable.startHour = start;
+    this.data.timetable.endHour = end;
+    this.saveData();
+    this.renderTimetable();
+  }
+
   // Settings
   renderSettings() {
     document.getElementById('subject-goal').value = this.subjectGoal;
@@ -2328,9 +2595,13 @@ class StudyTracker {
     this.subjects.forEach(subject => {
       const row = document.createElement('div');
       row.className = 'subject-editor';
+      const drive = this.getSubjectDrive(subject);
       row.innerHTML = `
-        <input type="text" value="${this.escapeAttr(subject)}" class="subject-input"/>
-        <button class="remove-btn">✕</button>
+        <div class="subject-editor-row">
+          <input type="text" value="${this.escapeAttr(subject)}" class="subject-input"/>
+          <button class="remove-btn">✕</button>
+        </div>
+        <input type="url" class="subject-drive-input" placeholder="Google Drive folder link (optional)" value="${this.escapeAttr(drive)}"/>
       `;
       
       const removeBtn = row.querySelector('.remove-btn');
@@ -2352,8 +2623,11 @@ class StudyTracker {
     const row = document.createElement('div');
     row.className = 'subject-editor';
     row.innerHTML = `
-      <input type="text" value="New Subject" class="subject-input"/>
-      <button class="remove-btn">✕</button>
+      <div class="subject-editor-row">
+        <input type="text" value="New Subject" class="subject-input"/>
+        <button class="remove-btn">✕</button>
+      </div>
+      <input type="url" class="subject-drive-input" placeholder="Google Drive folder link (optional)"/>
     `;
     
     const removeBtn = row.querySelector('.remove-btn');
@@ -2381,10 +2655,16 @@ class StudyTracker {
     
     // Gather subjects from editor
     const subjectInputs = document.querySelectorAll('.subject-editor .subject-input');
+    const driveInputs = document.querySelectorAll('.subject-editor .subject-drive-input');
     const newSubjects = [];
-    subjectInputs.forEach(input => {
+    const newDrives = {};
+    subjectInputs.forEach((input, i) => {
       const name = input.value.trim();
-      if (name) newSubjects.push(name);
+      if (name) {
+        newSubjects.push(name);
+        const drive = driveInputs[i] ? driveInputs[i].value.trim() : '';
+        if (drive) newDrives[name] = drive;
+      }
     });
     
     if (newSubjects.length === 0) {
@@ -2397,6 +2677,9 @@ class StudyTracker {
     this.subjects = newSubjects;
     this.notificationsEnabled = document.getElementById('notifications-enabled').checked;
     this.reminderTime = document.getElementById('reminder-time').value;
+    
+    // Store Drive links (re-keyed to the newest subject names)
+    this.data.subjectDrives = newDrives;
     
     this.pomodoroSettings = {
       work: parseInt(document.getElementById('pomodoro-work').value) || 25,
@@ -2447,6 +2730,14 @@ class StudyTracker {
         if (renamedTo[ex.subject]) ex.subject = renamedTo[ex.subject];
         return ex;
       });
+      // Remap or drop timetable entries for removed subjects
+      this.data.timetable = this.data.timetable || { entries: [], startHour: 8, endHour: 20 };
+      this.data.timetable.entries = (this.data.timetable.entries || [])
+        .filter(e => newSet.has(e.subject))
+        .map(e => {
+          if (renamedTo[e.subject]) e.subject = renamedTo[e.subject];
+          return e;
+        });
     }
     
     this.data.settings = {

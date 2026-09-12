@@ -29,6 +29,16 @@ A cozy, self-contained web app for tracking your study progress. Set a weekly go
 - Add, remove, or rename subjects freely.
 - Choose an **accent color** (amber, terracotta, green, brown, purple, rose, teal, gold — or any custom color).
 
+### Timetable
+- **Personalized weekly timetable** — add your classes for each day with subject and start/end times (plus an optional label like room/teacher). Visible in the **Timetable** tab, color-coded per subject, and stored with your data.
+- Adjust the displayed hours (e.g. show only 8:00–20:00).
+- Click any empty slot to add a class; click a class to edit or remove it.
+
+### Google Drive per subject
+- In Settings → **Subjects**, each subject can have an optional **Google Drive folder link**.
+- A 📁 button appears on that subject's card in the Today view, opening its folder in Drive.
+- You organize the folders yourself on Drive (one folder per subject), and the app just links your subjects to them — the structure is entirely yours.
+
 ### Reminders
 - Optional daily reminders at a chosen time that skip any subject already at its goal.
 

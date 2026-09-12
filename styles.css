@@ -191,6 +191,22 @@ nav {
   font-family: var(--font-display);
   font-size: 1.15rem;
   font-weight: 700;
+  margin-right: auto;
+}
+
+.drive-link-btn {
+  text-decoration: none;
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  transition: var(--transition);
+  margin-right: 8px;
+}
+
+.drive-link-btn:hover {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
 }
 
 .timer-btn {
@@ -553,9 +569,15 @@ nav {
 
 .subject-editor {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.subject-editor-row {
+  display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
 }
 
 .subject-editor input {
@@ -566,6 +588,11 @@ nav {
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 0.95rem;
+}
+
+.subject-editor .subject-drive-input {
+  flex: 1;
+  font-size: 0.85rem;
 }
 
 .subject-editor .remove-btn {
@@ -1513,5 +1540,159 @@ nav {
   .tasks-layout,
   .today-tasks-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Timetable ---- */
+.tt-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.tt-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.tt-range label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tt-hour-input {
+  width: 60px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.tt-grid {
+  display: grid;
+  gap: 0;
+}
+
+.tt-header {
+  grid-template-columns: 60px repeat(7, 1fr);
+}
+
+.tt-time-head {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 8px;
+}
+
+.tt-day-head {
+  text-align: center;
+  padding: 10px 4px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.tt-day-head.today {
+  color: var(--accent);
+}
+
+.tt-body {
+  grid-template-columns: 60px repeat(7, 1fr);
+  overflow: hidden;
+}
+
+.tt-time-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.tt-time-slot {
+  height: 40px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: right;
+  padding: 2px 6px 0 0;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border);
+}
+
+.tt-day-col {
+  position: relative;
+  border-left: 1px solid var(--border);
+}
+
+.tt-cell {
+  height: 40px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tt-cell:hover {
+  background: var(--bg-secondary);
+}
+
+.tt-entry {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: 8px;
+  padding: 4px 6px;
+  color: #fff;
+  font-size: 0.8rem;
+  overflow: hidden;
+  box-sizing: border-box;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  z-index: 1;
+  transition: filter 0.15s;
+}
+
+.tt-entry:hover {
+  filter: brightness(1.1);
+}
+
+.tt-entry-title {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tt-entry-label {
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.75rem;
+}
+
+.tt-entry-time {
+  opacity: 0.85;
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+
+/* Responsive for timetable */
+@media (max-width: 900px) {
+  .tt-time-slot,
+  .tt-cell {
+    height: 34px;
+  }
+  .tt-entry {
+    font-size: 0.7rem;
   }
 }
